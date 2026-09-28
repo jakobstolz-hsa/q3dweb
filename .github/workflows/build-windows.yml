@@ -31,4 +31,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         with:
           args: '--bundles nsis'
-          uploadWorkflowArtifacts: true
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: q3dweb-windows
+          path: src-tauri/target/release/bundle/nsis/*.exe
