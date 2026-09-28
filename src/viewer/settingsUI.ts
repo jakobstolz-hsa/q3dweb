@@ -233,6 +233,39 @@ export function buildCloudItemSettings(
             mat.uniforms.vmax.value = v; mat.needsUpdate = true; onRender();
         }));
     }
+
+    // --- Z clipping ---
+    if (mat.uniforms.clipEnabled && mat.uniforms.clipZ && geometry?.boundingBox) {
+        const minZ = geometry.boundingBox.min.z;
+        const maxZ = geometry.boundingBox.max.z;
+        const range = maxZ - minZ;
+        const step = range > 100 ? 1 : range > 10 ? 0.1 : 0.01;
+
+        mat.uniforms.clipZ.value = minZ;
+
+        container.appendChild(makeCheckbox(
+            'Z-Schnitt',
+            mat.uniforms.clipEnabled.value > 0.5,
+            (enabled) => {
+                mat.uniforms.clipEnabled.value = enabled ? 1.0 : 0.0;
+                mat.needsUpdate = true;
+                onRender();
+            },
+        ));
+
+        container.appendChild(makeLabel('Z:'));
+        container.appendChild(makeRangeInput(
+            minZ,
+            minZ,
+            maxZ,
+            step,
+            (v) => {
+                mat.uniforms.clipZ.value = v;
+                mat.needsUpdate = true;
+                onRender();
+            },
+        ));
+    }
 }
 
 // ========== NativeCloudItem settings ==========

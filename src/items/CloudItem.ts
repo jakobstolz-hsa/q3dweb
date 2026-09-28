@@ -392,12 +392,15 @@ export class CloudShaderMaterial extends THREE.ShaderMaterial {
             flatColor: { value: new THREE.Color(options.color || 'white') },
             pointType: { value: pointType },
             viewportHeight: { value: 1.0 },
+            clipEnabled: { value: 0.0 },
+            clipZ: { value: 0.0 },
         };
 
         const vertexShader = `
             attribute float value;
             attribute vec3 color;
             varying vec3 vColor;
+            varying float vWorldZ;
             uniform float vmin;
             uniform float vmax;
             uniform float pointSize;
@@ -428,6 +431,9 @@ export class CloudShaderMaterial extends THREE.ShaderMaterial {
                 vec3 mixedColor = mix(rainbowColor, color, rgbWeight);
                 vColor = mix(mixedColor, flatColor, flatWeight);
 
+                vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                vWorldZ = worldPosition.z;
+
                 vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
                 gl_Position = projectionMatrix * mvPosition;
 
@@ -439,10 +445,17 @@ export class CloudShaderMaterial extends THREE.ShaderMaterial {
 
         const fragmentShader = `
             varying vec3 vColor;
+            varying float vWorldZ;
             uniform float alpha;
             uniform float pointType;
+            uniform float clipEnabled;
+            uniform float clipZ;
 
             void main() {
+                if (clipEnabled > 0.5 && vWorldZ < clipZ) {
+                    discard;
+                }
+
                 vec2 coord = gl_PointCoord * 2.0 - 1.0;
                 float sphereMask = 1.0 - step(1.0, dot(coord, coord));
                 float sphereMode = step(1.5, pointType);
