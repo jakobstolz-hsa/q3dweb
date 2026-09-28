@@ -253,6 +253,16 @@ export function buildCloudItemSettings(
             },
         ));
 
+        container.appendChild(makeCheckbox(
+            'Flip',
+            mat.uniforms.clipFlip.value > 0.5,
+            (enabled) => {
+                mat.uniforms.clipFlip.value = enabled ? 1.0 : 0.0;
+                mat.needsUpdate = true;
+                onRender();
+            },
+        ));
+
         container.appendChild(makeLabel('Z:'));
         container.appendChild(makeRangeInput(
             minZ,

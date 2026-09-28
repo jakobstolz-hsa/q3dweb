@@ -394,6 +394,7 @@ export class CloudShaderMaterial extends THREE.ShaderMaterial {
             viewportHeight: { value: 1.0 },
             clipEnabled: { value: 0.0 },
             clipZ: { value: 0.0 },
+            clipFlip: { value: 0.0 },
         };
 
         const vertexShader = `
@@ -450,10 +451,16 @@ export class CloudShaderMaterial extends THREE.ShaderMaterial {
             uniform float pointType;
             uniform float clipEnabled;
             uniform float clipZ;
+            uniform float clipFlip;
 
             void main() {
-                if (clipEnabled > 0.5 && vWorldZ < clipZ) {
-                    discard;
+                if (clipEnabled > 0.5) {
+                    if (clipFlip < 0.5 && vWorldZ < clipZ) {
+                        discard;
+                    }
+                    if (clipFlip > 0.5 && vWorldZ >= clipZ) {
+                        discard;
+                    }
                 }
 
                 vec2 coord = gl_PointCoord * 2.0 - 1.0;
