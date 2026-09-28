@@ -5,9 +5,13 @@ import { Text2DItem } from './items/Text2DItem';
 import { Text3DItem } from './items/Text3DItem';
 import { eulerToMatrix4 } from './utils/maths';
 import {
-    makeLabel, makeTextInput, makeCheckbox, buildCloudItemSettings,
+    makeLabel, makeTextInput, makeCheckbox, makeButton, buildCloudItemSettings,
     setMaterialButtonLabel,
 } from './viewer/settingsUI';
+import {
+    loadPersistentSettings, savePersistentSettings,
+    type PersistentCloudSettings, type PersistentSettings,
+} from './settingsPersistence';
 import { createMaterialMenuSelect } from './viewer/materialSelect';
 import {
     setupMouseControls as _setupMouse, setupKeyboardControls as _setupKeys, updateCameraMovement,
@@ -61,6 +65,7 @@ export class Viewer {
     renderRequested: boolean = false;
     animationFrameId: number = 0;
     colorStr: string = 'black';
+    savedCloudSettings: PersistentCloudSettings | null = null;
 
     rendererPixelRatio: number = 1;
     isTouchPrimaryDevice: boolean = false;
@@ -220,6 +225,17 @@ export class Viewer {
         this.settingsContent = content;
         this.container.appendChild(panel);
         this.settingsPanel = panel;
+
+        const saveAndCloseButton = makeButton(
+            'Einstellungen speichern und beenden',
+            () => this.saveSettingsAndClose(),
+        );
+        saveAndCloseButton.setAttribute('data-role', 'save-and-close-button');
+        saveAndCloseButton.style.width = '100%';
+        saveAndCloseButton.style.marginTop = '10px';
+        panel.appendChild(saveAndCloseButton);
+
+        this.applyLoadedPersistentSettings();
         this.refreshSettingsItemList();
     }
 
@@ -280,6 +296,64 @@ export class Viewer {
         this.settingsItemSelectSync?.();
         if (!this.settingsPanelMinimized)
             this.onSettingsItemSelected(this.settingsItemSelect.value);
+    }
+
+    private applyLoadedPersistentSettings(): void {
+        const settings = loadPersistentSettings();
+        if (!settings) return;
+
+        this.colorStr = settings.backgroundColor;
+        try {
+            this.scene.background = new THREE.Color(settings.backgroundColor);
+        } catch {
+            this.colorStr = '#000000';
+            this.scene.background = new THREE.Color(0x000000);
+        }
+
+        this.enableShowCenter = settings.showCenter;
+        this.savedCloudSettings = settings.cloud;
+    }
+
+    getPersistentSettings(): PersistentSettings {
+        const item = this.items['cloud'] as any;
+        const uniforms = item?.material?.uniforms;
+
+        let cloud: PersistentCloudSettings | null = null;
+        if (uniforms) {
+            const finite = (value: unknown, fallback: number): number =>
+                typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+            cloud = {
+                pointSize: finite(uniforms.pointSize?.value, 1),
+                pointType: finite(uniforms.pointType?.value, 0),
+                alpha: finite(uniforms.alpha?.value, 1),
+                colorMode: finite(uniforms.colorMode?.value, 0),
+                vmin: finite(uniforms.vmin?.value, 0),
+                vmax: finite(uniforms.vmax?.value, 255),
+                clipEnabled: uniforms.clipEnabled?.value > 0.5,
+                clipFlip: uniforms.clipFlip?.value > 0.5,
+            };
+        }
+
+        return {
+            version: 1,
+            backgroundColor: this.colorStr,
+            showCenter: this.enableShowCenter,
+            cloud,
+        };
+    }
+
+    private saveSettingsAndClose(): void {
+        savePersistentSettings(this.getPersistentSettings());
+
+        const tauri = (window as any).__TAURI__;
+        const currentWindow = tauri?.window?.getCurrentWindow?.();
+        if (currentWindow) {
+            void currentWindow.close();
+            return;
+        }
+
+        window.close();
     }
 
     onSettingsItemSelected(name: string) {

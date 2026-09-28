@@ -58,7 +58,47 @@ export function renderPoints(v: any, positions: Float32Array, values: Float32Arr
     material.uniforms.alpha.value = alpha;
     material.uniforms.colorMode.value = colorModeToUniformValue(colorMode);
     material.uniforms.vmin.value = effectiveMin; material.uniforms.vmax.value = effectiveMax;
-    material.transparent = alpha < 0.99 || pointType === 'SPHERE';
+
+    const saved = v.savedCloudSettings as {
+        pointSize?: number;
+        pointType?: number;
+        alpha?: number;
+        colorMode?: number;
+        vmin?: number;
+        vmax?: number;
+        clipEnabled?: boolean;
+        clipFlip?: boolean;
+    } | null | undefined;
+
+    if (saved) {
+        if (typeof saved.pointSize === 'number' && Number.isFinite(saved.pointSize)) {
+            material.uniforms.pointSize.value = saved.pointSize;
+        }
+        if (typeof saved.pointType === 'number' && Number.isFinite(saved.pointType)) {
+            material.uniforms.pointType.value = saved.pointType;
+        }
+        if (typeof saved.alpha === 'number' && Number.isFinite(saved.alpha)) {
+            material.uniforms.alpha.value = saved.alpha;
+        }
+        if (typeof saved.colorMode === 'number' && Number.isFinite(saved.colorMode)) {
+            material.uniforms.colorMode.value = saved.colorMode;
+        }
+        if (typeof saved.vmin === 'number' && Number.isFinite(saved.vmin)) {
+            material.uniforms.vmin.value = saved.vmin;
+        }
+        if (typeof saved.vmax === 'number' && Number.isFinite(saved.vmax)) {
+            material.uniforms.vmax.value = saved.vmax;
+        }
+        if (material.uniforms.clipEnabled && typeof saved.clipEnabled === 'boolean') {
+            material.uniforms.clipEnabled.value = saved.clipEnabled ? 1.0 : 0.0;
+        }
+        if (material.uniforms.clipFlip && typeof saved.clipFlip === 'boolean') {
+            material.uniforms.clipFlip.value = saved.clipFlip ? 1.0 : 0.0;
+        }
+    }
+
+    material.transparent = material.uniforms.alpha.value < 0.99 ||
+        material.uniforms.pointType.value > 1.5;
     material.depthWrite = alpha >= 0.99 && pointType !== 'SPHERE';
     cloud.name = 'cloud'; cloud.frustumCulled = false;
     cloud.geometry.computeBoundingBox();
@@ -96,7 +136,16 @@ export function appendRealtimePoints(v: any, positions: Float32Array, values: Fl
     const beforeCount = cloudItem.getPointCount();
     const count = cloudItem.appendPoints(positions, values, rgbColors, Math.max(1, maxPoints ?? v.realtimeMaxPoints));
     const material = cloudItem.material as CloudShaderMaterial;
-    if (rgbColors) material.uniforms.colorMode.value = 1;
+    if (beforeCount === 0 && v.savedCloudSettings) {
+        const saved = v.savedCloudSettings;
+        if (typeof saved.pointSize === 'number' && Number.isFinite(saved.pointSize)) material.uniforms.pointSize.value = saved.pointSize;
+        if (typeof saved.pointType === 'number' && Number.isFinite(saved.pointType)) material.uniforms.pointType.value = saved.pointType;
+        if (typeof saved.alpha === 'number' && Number.isFinite(saved.alpha)) material.uniforms.alpha.value = saved.alpha;
+        if (typeof saved.colorMode === 'number' && Number.isFinite(saved.colorMode)) material.uniforms.colorMode.value = saved.colorMode;
+        if (typeof saved.clipEnabled === 'boolean') material.uniforms.clipEnabled.value = saved.clipEnabled ? 1.0 : 0.0;
+        if (typeof saved.clipFlip === 'boolean') material.uniforms.clipFlip.value = saved.clipFlip ? 1.0 : 0.0;
+    }
+    if (rgbColors && !v.savedCloudSettings?.colorMode) material.uniforms.colorMode.value = 1;
 
     let chunkMin = Infinity, chunkMax = -Infinity;
     for (let i = 0; i < values.length; i++) { const val = values[i]; if (val < chunkMin) chunkMin = val; if (val > chunkMax) chunkMax = val; }
